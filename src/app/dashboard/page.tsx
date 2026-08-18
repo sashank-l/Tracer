@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 
+import { ApiHealth } from "./api-health";
+
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
@@ -15,6 +17,7 @@ export default async function DashboardPage() {
         <h1>Tracer dashboard</h1>
       </header>
       <p>Your connected repositories and incidents will appear here.</p>
+      <ApiHealth />
     </main>
   );
 }
