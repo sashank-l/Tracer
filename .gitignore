@@ -41,5 +41,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 tasks.md 
-tracer-implimentation-plan.md
+tracer-implementation-plan.md
 
