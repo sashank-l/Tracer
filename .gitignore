@@ -42,4 +42,5 @@ yarn-error.log*
 next-env.d.ts
 tasks.md 
 tracer-implementation-plan.md
+tracer-electron-plan.md
 

@@ -1,23 +1,9 @@
-import { auth } from "@clerk/nextjs/server";
-
-import { ApiHealth } from "./api-health";
-
-export const dynamic = "force-dynamic";
-
-export default async function DashboardPage() {
-  const { userId } = await auth();
-
-  if (!userId) {
-    await auth.protect();
-  }
-
+// This Next.js backend handles auth only.
+// The full dashboard lives in the Electron desktop app (desktop/).
+export default function BackendPage() {
   return (
-    <main>
-      <header>
-        <h1>Tracer dashboard</h1>
-      </header>
-      <p>Your connected repositories and incidents will appear here.</p>
-      <ApiHealth />
+    <main style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+      <h1>Tracer auth backend — deploy to Vercel</h1>
     </main>
-  );
+  )
 }
