@@ -1,0 +1,27 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+  overflow: hidden; /* No scrollbars on the app shell */
+  user-select: none; /* Desktop feel — text selectable inside content areas explicitly */
+}
+
+/* Allow text selection inside main content */
+main,
+pre,
+code,
+textarea,
+input {
+  user-select: text;
+}
+
+:focus-visible {
+  outline: 2px solid #58a6ff;
+  outline-offset: 2px;
+}

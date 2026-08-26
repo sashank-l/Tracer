@@ -1,0 +1,179 @@
+// This is the Prisma schema for the Electron desktop app.
+// Provider: sqlite — one local file per install, stored in Electron's userData dir.
+// The path is set at runtime via DATABASE_URL in the main process before Prisma loads.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── App-level settings (single row, id = "singleton") ─────────────────────
+
+model AppSettings {
+  id           String   @id @default("singleton")
+  maxToolCalls Int      @default(25)
+  reposDir     String?  // default clone/index directory
+  llmProvider  String   @default("openai")
+  llmModel     String   @default("gpt-4o-mini")
+  // llmApiKey is NOT stored here — stored via electron.safeStorage
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ── Repositories ──────────────────────────────────────────────────────────
+
+enum CloneStatus {
+  PENDING
+  CLONING
+  INDEXED
+  ERROR
+}
+
+model Repository {
+  id            String      @id @default(cuid())
+  githubId      BigInt?     @unique
+  owner         String
+  name          String
+  defaultBranch String      @default("main")
+  localPath     String?     // absolute path on disk
+  apiKey        String      @unique @default(cuid()) // for local ingest endpoint auth
+  cloneStatus   CloneStatus @default(PENDING)
+  testCommand   String?
+  buildCommand  String?
+  lintCommand   String?
+  indexedAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  incidents     Incident[]
+  symbols       Symbol[]
+  commitRecords CommitRecord[]
+
+  @@unique([owner, name])
+  @@index([cloneStatus])
+}
+
+// ── Incidents ─────────────────────────────────────────────────────────────
+
+enum IncidentStatus {
+  NEW
+  DIAGNOSING
+  PATCHING
+  VERIFIED
+  FAILED
+  UNVERIFIED
+}
+
+model Incident {
+  id              String         @id @default(cuid())
+  repositoryId    String
+  fingerprint     String
+  title           String
+  message         String?
+  stackTrace      String?
+  status          IncidentStatus @default(NEW)
+  firstSeenAt     DateTime       @default(now())
+  lastSeenAt      DateTime       @default(now())
+  occurrenceCount Int            @default(1)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  repository  Repository     @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  patchAttempts PatchAttempt[]
+  sessions    AgentSession[]
+
+  @@unique([repositoryId, fingerprint])
+  @@index([repositoryId, status])
+}
+
+// ── Code index ────────────────────────────────────────────────────────────
+
+model Symbol {
+  id           String   @id @default(cuid())
+  repositoryId String
+  filePath     String
+  name         String
+  kind         String   // "function" | "class" | "method" | "interface" | "type"
+  startLine    Int
+  endLine      Int
+  sourceText   String
+  signature    String?  // first line + leading comment — used in tier-1 context assembly
+  embedding    Bytes?   // Float32Array serialized as buffer — brute-force cosine search
+
+  repository   Repository    @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  fromEdges    SymbolEdge[]  @relation("EdgeFrom")
+  toEdges      SymbolEdge[]  @relation("EdgeTo")
+
+  @@index([repositoryId, filePath])
+  @@index([repositoryId, name])
+}
+
+model SymbolEdge {
+  id           String @id @default(cuid())
+  fromSymbolId String
+  toSymbolId   String
+  edgeType     String // "calls" | "imports" | "references"
+
+  from Symbol @relation("EdgeFrom", fields: [fromSymbolId], references: [id], onDelete: Cascade)
+  to   Symbol @relation("EdgeTo",   fields: [toSymbolId],   references: [id], onDelete: Cascade)
+
+  @@unique([fromSymbolId, toSymbolId, edgeType])
+  @@index([fromSymbolId])
+  @@index([toSymbolId])
+}
+
+model CommitRecord {
+  id           String   @id @default(cuid())
+  repositoryId String
+  sha          String
+  message      String
+  authorEmail  String
+  committedAt  DateTime
+  filesChanged String   // JSON array of file paths
+  diffText     String
+  embedding    Bytes?   // Float32Array buffer for commit message + diff similarity search
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, sha])
+  @@index([repositoryId, committedAt])
+}
+
+// ── Agent sessions ────────────────────────────────────────────────────────
+
+model AgentSession {
+  id            String   @id @default(cuid())
+  incidentId    String
+  outcome       String   // "VERIFIED" | "UNVERIFIED" | "RUNNING"
+  totalToolCalls Int     @default(0)
+  totalTokens   Int      @default(0)
+  patchAttempts Int      @default(0)
+  durationMs    Int?
+  transcript    String   // full JSON tool-call log
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  incident      Incident      @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  patchAttempts_ PatchAttempt[]
+}
+
+model PatchAttempt {
+  id           String       @id @default(cuid())
+  incidentId   String
+  sessionId    String
+  attempt      Int
+  diffText     String
+  testDiff     String?
+  status       String       // "PENDING" | "RUNNING" | "PASSED" | "FAILED"
+  verifyOutput String?      // structured JSON from run_verification
+  createdAt    DateTime     @default(now())
+
+  incident Incident     @relation(fields: [incidentId], references: [id], onDelete: Cascade)
+  session  AgentSession @relation(fields: [sessionId],  references: [id], onDelete: Cascade)
+
+  @@index([incidentId, attempt])
+}
