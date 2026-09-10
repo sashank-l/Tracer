@@ -1,36 +1,58 @@
 # Tracer
 
-AI-powered production debugging platform. This repository contains the Tracer web application.
+Tracer is an autonomous, local-first production debugging platform. It ingests runtime errors and stack traces, indexes local codebases using AST analysis and vector search, and deploys an agentic repair loop to reproduce, patch, and verify bugs locally on your machine with zero cloud data leakage.
 
-## Getting Started
+---
 
-First, run the development server:
+## How to Run
 
-```bash
-pnpm dev
-```
+### 1. Prerequisites
+- **Node.js** (v18+) & **npm**
+- **OpenAI** or **OpenRouter API Key** (set in app Settings or as an environment variable)
 
-Copy `.env.example` to `.env.local` and fill in the values needed for the services you enable. Never commit `.env.local`.
+---
 
-Open [http://localhost:3000](http://localhost:3000) to view the app.
-
-## Quality checks
+### 2. Run the Desktop App (Electron)
 
 ```bash
-pnpm lint
-pnpm format:check
-pnpm build
+# Navigate to the desktop directory
+cd desktop
+
+# Install dependencies
+npm install
+
+# Launch the app in development mode
+npm run dev
 ```
 
-To learn more about Next.js, take a look at the following resources:
+To create a production build:
+```bash
+npm run build
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 3. (Optional) Run the GitHub OAuth Backend
+If you use GitHub authentication:
 
-## Deploy on Vercel
+```bash
+# From the project root
+npm install
+npm run dev
+```
+*(Make sure `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` are configured in `.env`)*
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 4. Ingesting Test Errors
+While Tracer is running, the local ingest server listens on port `47821`. You can post an error from any terminal or webhook:
+
+```bash
+curl -X POST http://localhost:47821/ingest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "TypeError: Cannot read properties of undefined (reading '\''token'\'')",
+    "stackTrace": "TypeError: Cannot read properties of undefined (reading '\''token'\'')\n    at processOrder (src/services/order.ts:42:15)\n    at handleCheckout (src/controllers/checkout.ts:18:9)"
+  }'
+```
+
